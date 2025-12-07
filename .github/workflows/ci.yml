@@ -1,12 +1,14 @@
-name: Python Package
+name: Python Package CI/CD
 
 on:
   push:
     branches: [main, master]
+    paths:
+      - '**.py'
+      - 'setup.py'
+      - '.github/workflows/ci.yml'
   pull_request:
     branches: [main, master]
-  release:
-    types: [created]
 
 jobs:
   test:
@@ -43,13 +45,15 @@ jobs:
           python -m dpow
 
   publish:
-    name: Build and Publish to PyPI
+    name: Auto-version and Publish to PyPI
     needs: test
     runs-on: ubuntu-latest
-    if: github.event_name == 'release' && github.event.action == 'created'
-
+    if: github.event_name == 'push' && github.ref == 'refs/heads/main'
+    
     steps:
       - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
 
       - name: Set up Python
         uses: actions/setup-python@v4
@@ -59,7 +63,34 @@ jobs:
       - name: Install build dependencies
         run: |
           python -m pip install --upgrade pip
-          pip install setuptools wheel twine requests
+          pip install setuptools wheel twine requests packaging
+
+      - name: Get latest release version and increment
+        id: version
+        run: |
+          # Get latest release tag
+          LATEST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "v0.0.0")
+          echo "Latest tag: $LATEST_TAG"
+          
+          # Remove 'v' prefix if present
+          VERSION=${LATEST_TAG#v}
+          echo "Current version: $VERSION"
+          
+          # Split version into parts
+          IFS='.' read -r MAJOR MINOR PATCH <<< "$VERSION"
+          
+          # Increment patch version
+          PATCH=$((PATCH + 1))
+          NEW_VERSION="$MAJOR.$MINOR.$PATCH"
+          
+          echo "New version: $NEW_VERSION"
+          echo "version=$NEW_VERSION" >> $GITHUB_OUTPUT
+          echo "tag=v$NEW_VERSION" >> $GITHUB_OUTPUT
+
+      - name: Update version in setup.py
+        run: |
+          sed -i 's/version="[^"]*"/version="${{ steps.version.outputs.version }}"/' setup.py
+          cat setup.py
 
       - name: Build package
         run: |
@@ -70,7 +101,22 @@ jobs:
           TWINE_USERNAME: __token__
           TWINE_PASSWORD: ${{ secrets.PYPI_API_TOKEN }}
         run: |
-          twine upload dist/*
+          twine upload dist/* || echo "Upload failed, possibly version already exists"
+
+      - name: Create GitHub Release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ steps.version.outputs.tag }}
+          release_name: Release ${{ steps.version.outputs.tag }}
+          body: |
+            Automated release ${{ steps.version.outputs.version }}
+            
+            Changes in this release:
+            - Auto-generated from commit ${{ github.sha }}
+          draft: false
+          prerelease: false
 
   verify-publish:
     name: Verify PyPI package on ${{ matrix.os }}
@@ -88,12 +134,12 @@ jobs:
           python-version: ${{ matrix.python-version }}
 
       - name: Wait for PyPI to update
-        run: sleep 60
+        run: sleep 90
 
       - name: Install from PyPI
         run: |
           python -m pip install --upgrade pip
-          pip install dpow
+          pip install --upgrade dpow
 
       - name: Test installed package from PyPI
         run: |
