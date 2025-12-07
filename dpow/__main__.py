@@ -1,6 +1,18 @@
-from .client import PoWClient, create_multi_pow_challenge
-from .server import PoWServer
-from .downloader import ensure_binaries
+import sys
+import os
+
+# Support both direct execution and module execution
+if __package__ is None or __package__ == '':
+    # Direct execution: add parent directory to path
+    sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
+    from dpow.client import PoWClient, create_multi_pow_challenge
+    from dpow.server import PoWServer
+    from dpow.downloader import ensure_binaries
+else:
+    # Module execution
+    from .client import PoWClient, create_multi_pow_challenge
+    from .server import PoWServer
+    from .downloader import ensure_binaries
 
 # Test parameters
 TEST_TEXT = b"hello world"
