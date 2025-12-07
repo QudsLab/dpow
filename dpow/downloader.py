@@ -68,7 +68,7 @@ def fetch_binaries_data():
         response.raise_for_status()
         return response.json()
     except requests.RequestException as e:
-        print(f"❌ Error fetching binary data: {e}")
+        print(f"[ERROR] Error fetching binary data: {e}")
         return None
 
 
@@ -84,7 +84,7 @@ def calculate_md5(filepath):
 def download_file(url, destination, expected_md5=None):
     """Download a file and optionally verify its MD5 hash."""
     try:
-        print(f"📥 Downloading: {url}")
+        print(f"[INFO] Downloading: {url}")
         response = requests.get(url, stream=True, timeout=60)
         response.raise_for_status()
         
@@ -106,13 +106,13 @@ def download_file(url, destination, expected_md5=None):
         
         # Verify MD5 if provided
         if expected_md5:
-            # print(f"🔍 Verifying MD5 hash...")
+            # print(f"[INFO] Verifying MD5 hash...")
             actual_md5 = calculate_md5(destination)
             if actual_md5.lower() == expected_md5.lower():
-                # print(f"✅ MD5 verified: {actual_md5}")
+                # print(f"[OK] MD5 verified: {actual_md5}")
                 pass
             else:
-                print(f"❌ MD5 mismatch!")
+                print(f"[ERROR] MD5 mismatch!")
                 print(f"   Expected: {expected_md5}")
                 print(f"   Got:      {actual_md5}")
                 os.remove(destination)
@@ -120,7 +120,7 @@ def download_file(url, destination, expected_md5=None):
         
         return True
     except Exception as e:
-        print(f"❌ Download failed: {e}")
+        print(f"[ERROR] Download failed: {e}")
         if os.path.exists(destination):
             os.remove(destination)
         return False
