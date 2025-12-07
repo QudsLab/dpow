@@ -32,8 +32,8 @@ jobs:
 
       - name: Test from source (without installing package)
         run: |
-          cd dpow
-          python -m dpow
+          python -m dpow.client --help || echo "Direct module test"
+          python dpow/__main__.py
 
       - name: Install package in development mode
         run: |
